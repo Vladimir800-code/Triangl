@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Triangle Visualization with Extended Lines</title>
+  <title>Triangle Visualization Tool</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
   <style>
@@ -193,7 +193,7 @@
       { name: 'Angle between bisector and median', designation: 'CCb;AAm', key: 'angleCCbAAm' }
     ];
 
-    // Geometry functions
+    // Geometry functions (остаются без изменений)
     function isRightAngle(A, B, C) {
       const EPSILON = 1e-10;
       const AB = { x: B.x - A.x, y: B.y - A.y };
@@ -447,7 +447,7 @@
 
     function getChartDatasets(isSmall = false) {
       const points = isSmall ? { pointA: smallPointA, pointB: smallPointB, pointC: smallPointC } : { pointA, pointB, pointC };
-      const params = isSmall ? tableSelectedParams : allParameters;
+      const params = isSmall ? tableSelectedParams.filter((_, i) => i < 2) : allParameters; // Только желтые строки для smallChart
       const dataValues = isSmall ? smallValues : values;
       const { orthocenter, pointAh, pointBh, pointCh, pointAb, pointBb, pointCb, pointAm, pointBm, pointCm, incenter } = dataValues;
 
@@ -459,56 +459,338 @@
           showLine: true,
           fill: false,
           pointRadius: 0
-        },
-        {
-          label: 'Side AB',
-          data: [points.pointA, points.pointB],
-          borderColor: '#000000',
-          showLine: true,
-          fill: false,
-          pointRadius: 0
-        },
-        {
-          label: 'Side BC',
-          data: [points.pointB, points.pointC],
-          borderColor: '#000000',
-          showLine: true,
-          fill: false,
-          pointRadius: 0
-        },
-        {
-          label: 'Side AC',
-          data: [points.pointA, points.pointC],
-          borderColor: '#000000',
-          showLine: true,
-          fill: false,
-          pointRadius: 0
-        },
-        {
-          label: 'Point A',
-          data: [points.pointA],
-          backgroundColor: '#00ff00',
-          pointRadius: 4.25,
-          pointHoverRadius: 4.25
-        },
-        {
-          label: 'Point B',
-          data: [points.pointB],
-          backgroundColor: '#ff00ff',
-          pointRadius: 4.25,
-          pointHoverRadius: 4.25
-        },
-        {
-          label: 'Point C',
-          data: [points.pointC],
-          backgroundColor: '#00ffff',
-          pointRadius: 4.25,
-          pointHoverRadius: 4.25
         }
       ];
 
-      // Add extended lines for heights if needed
-      if (params.some(p => p.key.includes('altitude'))) {
+      if (isSmall) {
+        // Собираем элементы только из независимых параметров (желтые строки)
+        const elementsToShow = {
+          A: false, B: false, C: false,
+          AB: false, BC: false, AC: false,
+          AAh: false, BBh: false, CCh: false,
+          AAb: false, BBb: false, CCb: false,
+          AAm: false, BBm: false, CCm: false,
+          inradius: false
+        };
+
+        // Анализируем только независимые параметры (первые 2)
+        params.forEach(param => {
+          if (param.key.includes('sideAB')) elementsToShow.AB = true;
+          if (param.key.includes('sideBC')) elementsToShow.BC = true;
+          if (param.key.includes('sideAC')) elementsToShow.AC = true;
+          
+          if (param.key.includes('A') && !param.key.includes('Ah') && !param.key.includes('Ab') && !param.key.includes('Am')) elementsToShow.A = true;
+          if (param.key.includes('B') && !param.key.includes('Bh') && !param.key.includes('Bb') && !param.key.includes('Bm')) elementsToShow.B = true;
+          if (param.key.includes('C') && !param.key.includes('Ch') && !param.key.includes('Cb') && !param.key.includes('Cm')) elementsToShow.C = true;
+          
+          if (param.key.includes('altitudeAAh') || param.key.includes('angleBAAh')) elementsToShow.AAh = true;
+          if (param.key.includes('altitudeBBh') || param.key.includes('angleCBBh')) elementsToShow.BBh = true;
+          if (param.key.includes('altitudeCCh') || param.key.includes('angleACCh')) elementsToShow.CCh = true;
+          
+          if (param.key.includes('bisectorAAb') || param.key.includes('angleAAbC') || param.key.includes('angleAAbBBm')) elementsToShow.AAb = true;
+          if (param.key.includes('bisectorBBb') || param.key.includes('angleBBbA') || param.key.includes('angleBBbCCm')) elementsToShow.BBb = true;
+          if (param.key.includes('bisectorCCb') || param.key.includes('angleCCbB') || param.key.includes('angleCCbAAm')) elementsToShow.CCb = true;
+          
+          if (param.key.includes('medianAAm') || param.key.includes('angleAAmC') || param.key.includes('angleCCbAAm')) elementsToShow.AAm = true;
+          if (param.key.includes('medianBBm') || param.key.includes('angleBBmA') || param.key.includes('angleAAbBBm')) elementsToShow.BBm = true;
+          if (param.key.includes('medianCCm') || param.key.includes('angleCCmB') || param.key.includes('angleBBbCCm')) elementsToShow.CCm = true;
+          
+          if (param.key.includes('inradius')) elementsToShow.inradius = true;
+          
+          // Для углов добавляем соответствующие стороны
+          if (param.key === 'angleBAC') { elementsToShow.AB = true; elementsToShow.AC = true; }
+          if (param.key === 'angleABC') { elementsToShow.AB = true; elementsToShow.BC = true; }
+          if (param.key === 'angleBCA') { elementsToShow.BC = true; elementsToShow.AC = true; }
+        });
+
+        // Добавляем вершины, если они нужны
+        if (elementsToShow.A) {
+          datasets.push({
+            label: 'Point A',
+            data: [points.pointA],
+            backgroundColor: '#00ff00',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.B) {
+          datasets.push({
+            label: 'Point B',
+            data: [points.pointB],
+            backgroundColor: '#ff00ff',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.C) {
+          datasets.push({
+            label: 'Point C',
+            data: [points.pointC],
+            backgroundColor: '#00ffff',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+
+        // Добавляем стороны
+        if (elementsToShow.AB) {
+          datasets.push({
+            label: 'Side AB',
+            data: [points.pointA, points.pointB],
+            borderColor: '#000000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          });
+        }
+        if (elementsToShow.BC) {
+          datasets.push({
+            label: 'Side BC',
+            data: [points.pointB, points.pointC],
+            borderColor: '#000000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          });
+        }
+        if (elementsToShow.AC) {
+          datasets.push({
+            label: 'Side AC',
+            data: [points.pointA, points.pointC],
+            borderColor: '#000000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          });
+        }
+
+        // Добавляем высоты
+        if (elementsToShow.AAh) {
+          datasets.push({
+            label: 'Altitude A-Ah',
+            data: isRightAngle(points.pointA, points.pointB, points.pointC) ? [pointAh, points.pointA] : [orthocenter, pointAh, points.pointA],
+            borderColor: '#4682b4',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Ah',
+            data: [pointAh],
+            backgroundColor: '#800080',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.BBh) {
+          datasets.push({
+            label: 'Altitude B-Bh',
+            data: isRightAngle(points.pointB, points.pointA, points.pointC) ? [pointBh, points.pointB] : [orthocenter, pointBh, points.pointB],
+            borderColor: '#4682b4',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Bh',
+            data: [pointBh],
+            backgroundColor: '#800080',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.CCh) {
+          datasets.push({
+            label: 'Altitude C-Ch',
+            data: isRightAngle(points.pointC, points.pointA, points.pointB) ? [pointCh, points.pointC] : [orthocenter, pointCh, points.pointC],
+            borderColor: '#4682b4',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Ch',
+            data: [pointCh],
+            backgroundColor: '#800080',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+
+        // Добавляем биссектрисы
+        if (elementsToShow.AAb) {
+          datasets.push({
+            label: 'Bisector A-Ab',
+            data: [points.pointA, pointAb],
+            borderColor: '#ff4500',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Ab',
+            data: [pointAb],
+            backgroundColor: '#ff4500',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.BBb) {
+          datasets.push({
+            label: 'Bisector B-Bb',
+            data: [points.pointB, pointBb],
+            borderColor: '#ff4500',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Bb',
+            data: [pointBb],
+            backgroundColor: '#ff4500',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.CCb) {
+          datasets.push({
+            label: 'Bisector C-Cb',
+            data: [points.pointC, pointCb],
+            borderColor: '#ff4500',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Cb',
+            data: [pointCb],
+            backgroundColor: '#ff4500',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+
+        // Добавляем медианы
+        if (elementsToShow.AAm) {
+          datasets.push({
+            label: 'Median A-Am',
+            data: [points.pointA, pointAm],
+            borderColor: '#008000',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Am',
+            data: [pointAm],
+            backgroundColor: '#008000',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.BBm) {
+          datasets.push({
+            label: 'Median B-Bm',
+            data: [points.pointB, pointBm],
+            borderColor: '#008000',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Bm',
+            data: [pointBm],
+            backgroundColor: '#008000',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+        if (elementsToShow.CCm) {
+          datasets.push({
+            label: 'Median C-Cm',
+            data: [points.pointC, pointCm],
+            borderColor: '#008000',
+            borderDash: [4.25, 4.25],
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Point Cm',
+            data: [pointCm],
+            backgroundColor: '#008000',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+
+        // Добавляем вписанную окружность
+        if (elementsToShow.inradius) {
+          datasets.push({
+            label: 'Incircle',
+            data: getIncirclePoints(incenter, dataValues.inradius),
+            borderColor: '#ff0000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          }, {
+            label: 'Incenter I',
+            data: [incenter],
+            backgroundColor: '#ff0000',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          });
+        }
+      } else {
+        // Оригинальный код для mainChart (показывает все элементы)
+        datasets.push(
+          {
+            label: 'Side AB',
+            data: [points.pointA, points.pointB],
+            borderColor: '#000000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          },
+          {
+            label: 'Side BC',
+            data: [points.pointB, points.pointC],
+            borderColor: '#000000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          },
+          {
+            label: 'Side AC',
+            data: [points.pointA, points.pointC],
+            borderColor: '#000000',
+            showLine: true,
+            fill: false,
+            pointRadius: 0
+          },
+          {
+            label: 'Point A',
+            data: [points.pointA],
+            backgroundColor: '#00ff00',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          },
+          {
+            label: 'Point B',
+            data: [points.pointB],
+            backgroundColor: '#ff00ff',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          },
+          {
+            label: 'Point C',
+            data: [points.pointC],
+            backgroundColor: '#00ffff',
+            pointRadius: 4.25,
+            pointHoverRadius: 4.25
+          }
+        );
+
+        // Добавляем все остальные элементы для mainChart
         if (shouldExtendLine(points.pointB, points.pointC, pointAh)) {
           datasets.push({
             label: 'Extended BC',
@@ -544,10 +826,134 @@
             pointRadius: 0
           });
         }
-      }
 
-      if (params.some(param => param.key === 'inradius')) {
         datasets.push({
+          label: 'Altitude A-Ah',
+          data: isRightAngle(points.pointA, points.pointB, points.pointC) ? [pointAh, points.pointA] : [orthocenter, pointAh, points.pointA],
+          borderColor: '#4682b4',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Ah',
+          data: [pointAh],
+          backgroundColor: '#800080',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Altitude B-Bh',
+          data: isRightAngle(points.pointB, points.pointA, points.pointC) ? [pointBh, points.pointB] : [orthocenter, pointBh, points.pointB],
+          borderColor: '#4682b4',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Bh',
+          data: [pointBh],
+          backgroundColor: '#800080',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Altitude C-Ch',
+          data: isRightAngle(points.pointC, points.pointA, points.pointB) ? [pointCh, points.pointC] : [orthocenter, pointCh, points.pointC],
+          borderColor: '#4682b4',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Ch',
+          data: [pointCh],
+          backgroundColor: '#800080',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Bisector A-Ab',
+          data: [points.pointA, pointAb],
+          borderColor: '#ff4500',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Ab',
+          data: [pointAb],
+          backgroundColor: '#ff4500',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Bisector B-Bb',
+          data: [points.pointB, pointBb],
+          borderColor: '#ff4500',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Bb',
+          data: [pointBb],
+          backgroundColor: '#ff4500',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Bisector C-Cb',
+          data: [points.pointC, pointCb],
+          borderColor: '#ff4500',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Cb',
+          data: [pointCb],
+          backgroundColor: '#ff4500',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Median A-Am',
+          data: [points.pointA, pointAm],
+          borderColor: '#008000',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Am',
+          data: [pointAm],
+          backgroundColor: '#008000',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Median B-Bm',
+          data: [points.pointB, pointBm],
+          borderColor: '#008000',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Bm',
+          data: [pointBm],
+          backgroundColor: '#008000',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
+          label: 'Median C-Cm',
+          data: [points.pointC, pointCm],
+          borderColor: '#008000',
+          borderDash: [4.25, 4.25],
+          showLine: true,
+          fill: false,
+          pointRadius: 0
+        }, {
+          label: 'Point Cm',
+          data: [pointCm],
+          backgroundColor: '#008000',
+          pointRadius: 4.25,
+          pointHoverRadius: 4.25
+        }, {
           label: 'Incircle',
           data: getIncirclePoints(incenter, dataValues.inradius),
           borderColor: '#ff0000',
@@ -563,482 +969,19 @@
         });
       }
 
-      params.forEach(param => {
-        if (param.key === 'altitudeAAh') {
-          datasets.push({
-            label: 'Altitude A-Ah',
-            data: isRightAngle(points.pointA, points.pointB, points.pointC) ? [pointAh, points.pointA] : [orthocenter, pointAh, points.pointA],
-            borderColor: '#4682b4',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ah',
-            data: [pointAh],
-            backgroundColor: '#800080',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'altitudeBBh') {
-          datasets.push({
-            label: 'Altitude B-Bh',
-            data: isRightAngle(points.pointB, points.pointA, points.pointC) ? [pointBh, points.pointB] : [orthocenter, pointBh, points.pointB],
-            borderColor: '#4682b4',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bh',
-            data: [pointBh],
-            backgroundColor: '#800080',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'altitudeCCh') {
-          datasets.push({
-            label: 'Altitude C-Ch',
-            data: isRightAngle(points.pointC, points.pointA, points.pointB) ? [pointCh, points.pointC] : [orthocenter, pointCh, points.pointC],
-            borderColor: '#4682b4',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ch',
-            data: [pointCh],
-            backgroundColor: '#800080',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleBAAh') {
-          datasets.push({
-            label: 'Side AB',
-            data: [points.pointA, points.pointB],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Altitude A-Ah',
-            data: isRightAngle(points.pointA, points.pointB, points.pointC) ? [pointAh, points.pointA] : [orthocenter, pointAh, points.pointA],
-            borderColor: '#4682b4',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ah',
-            data: [pointAh],
-            backgroundColor: '#800080',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleCBBh') {
-          datasets.push({
-            label: 'Side BC',
-            data: [points.pointB, points.pointC],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Altitude B-Bh',
-            data: isRightAngle(points.pointB, points.pointA, points.pointC) ? [pointBh, points.pointB] : [orthocenter, pointBh, points.pointB],
-            borderColor: '#4682b4',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bh',
-            data: [pointBh],
-            backgroundColor: '#800080',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleACCh') {
-          datasets.push({
-            label: 'Side AC',
-            data: [points.pointA, points.pointC],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Altitude C-Ch',
-            data: isRightAngle(points.pointC, points.pointA, points.pointB) ? [pointCh, points.pointC] : [orthocenter, pointCh, points.pointC],
-            borderColor: '#4682b4',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ch',
-            data: [pointCh],
-            backgroundColor: '#800080',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'bisectorAAb') {
-          datasets.push({
-            label: 'Bisector A-Ab',
-            data: [points.pointA, pointAb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ab',
-            data: [pointAb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'bisectorBBb') {
-          datasets.push({
-            label: 'Bisector B-Bb',
-            data: [points.pointB, pointBb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bb',
-            data: [pointBb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'bisectorCCb') {
-          datasets.push({
-            label: 'Bisector C-Cb',
-            data: [points.pointC, pointCb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Cb',
-            data: [pointCb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleAAbC') {
-          datasets.push({
-            label: 'Side AC',
-            data: [points.pointA, points.pointC],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Bisector A-Ab',
-            data: [points.pointA, pointAb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ab',
-            data: [pointAb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleBBbA') {
-          datasets.push({
-            label: 'Side BA',
-            data: [points.pointB, points.pointA],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Bisector B-Bb',
-            data: [points.pointB, pointBb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bb',
-            data: [pointBb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleCCbB') {
-          datasets.push({
-            label: 'Side CB',
-            data: [points.pointC, points.pointB],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Bisector C-Cb',
-            data: [points.pointC, pointCb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Cb',
-            data: [pointCb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'medianAAm') {
-          datasets.push({
-            label: 'Median A-Am',
-            data: [points.pointA, pointAm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Am',
-            data: [pointAm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'medianBBm') {
-          datasets.push({
-            label: 'Median B-Bm',
-            data: [points.pointB, pointBm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bm',
-            data: [pointBm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'medianCCm') {
-          datasets.push({
-            label: 'Median C-Cm',
-            data: [points.pointC, pointCm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Cm',
-            data: [pointCm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleAAmC') {
-          datasets.push({
-            label: 'Side AC',
-            data: [points.pointA, points.pointC],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Median A-Am',
-            data: [points.pointA, pointAm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Am',
-            data: [pointAm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleBBmA') {
-          datasets.push({
-            label: 'Side BA',
-            data: [points.pointB, points.pointA],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Median B-Bm',
-            data: [points.pointB, pointBm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bm',
-            data: [pointBm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleCCmB') {
-          datasets.push({
-            label: 'Side CB',
-            data: [points.pointC, points.pointB],
-            borderColor: '#000000',
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Median C-Cm',
-            data: [points.pointC, pointCm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Cm',
-            data: [pointCm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleAAbBBm') {
-          datasets.push({
-            label: 'Bisector A-Ab',
-            data: [points.pointA, pointAb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Ab',
-            data: [pointAb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          }, {
-            label: 'Median B-Bm',
-            data: [points.pointB, pointBm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bm',
-            data: [pointBm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleBBbCCm') {
-          datasets.push({
-            label: 'Bisector B-Bb',
-            data: [points.pointB, pointBb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Bb',
-            data: [pointBb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          }, {
-            label: 'Median C-Cm',
-            data: [points.pointC, pointCm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Cm',
-            data: [pointCm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-        if (param.key === 'angleCCbAAm') {
-          datasets.push({
-            label: 'Bisector C-Cb',
-            data: [points.pointC, pointCb],
-            borderColor: '#ff4500',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Cb',
-            data: [pointCb],
-            backgroundColor: '#ff4500',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          }, {
-            label: 'Median A-Am',
-            data: [points.pointA, pointAm],
-            borderColor: '#008000',
-            borderDash: [4.25, 4.25],
-            showLine: true,
-            fill: false,
-            pointRadius: 0
-          }, {
-            label: 'Point Am',
-            data: [pointAm],
-            backgroundColor: '#008000',
-            pointRadius: 4.25,
-            pointHoverRadius: 4.25
-          });
-        }
-      });
-
       return datasets;
     }
 
     function getChartAnnotations(isSmall = false) {
       const points = isSmall ? { pointA: smallPointA, pointB: smallPointB, pointC: smallPointC } : { pointA, pointB, pointC };
-      const params = isSmall ? tableSelectedParams : allParameters;
+      const params = isSmall ? tableSelectedParams.filter((_, i) => i < 2) : allParameters;
       const dataValues = isSmall ? smallValues : values;
       const { orthocenter, pointAh, pointBh, pointCh, pointAb, pointBb, pointCb, pointAm, pointBm, pointCm, incenter } = dataValues;
 
-      const annotations = {
-        labelA: {
+      const annotations = {};
+
+      if (!isSmall || params.some(p => p.designation.includes('A') || p.key.includes('A'))) {
+        annotations.labelA = {
           type: 'label',
           xValue: points.pointA.x,
           yValue: points.pointA.y,
@@ -1048,8 +991,10 @@
           position: 'center',
           xAdjust: 8.5,
           yAdjust: -8.5
-        },
-        labelB: {
+        };
+      }
+      if (!isSmall || params.some(p => p.designation.includes('B') || p.key.includes('B'))) {
+        annotations.labelB = {
           type: 'label',
           xValue: points.pointB.x,
           yValue: points.pointB.y,
@@ -1059,8 +1004,10 @@
           position: 'center',
           xAdjust: 8.5,
           yAdjust: -8.5
-        },
-        labelC: {
+        };
+      }
+      if (!isSmall || params.some(p => p.designation.includes('C') || p.key.includes('C'))) {
+        annotations.labelC = {
           type: 'label',
           xValue: points.pointC.x,
           yValue: points.pointC.y,
@@ -1070,10 +1017,10 @@
           position: 'center',
           xAdjust: 8.5,
           yAdjust: -8.5
-        }
-      };
+        };
+      }
 
-      if (params.some(param => param.key === 'inradius')) {
+      if ((!isSmall || params.some(p => p.key === 'inradius')) && incenter) {
         annotations.labelI = {
           type: 'label',
           xValue: incenter.x,
@@ -1088,7 +1035,7 @@
       }
 
       params.forEach(param => {
-        if (param.key.includes('altitudeAAh') || param.key.includes('angleBAAh')) {
+        if ((!isSmall || param.key.includes('altitudeAAh') || param.key.includes('angleBAAh')) && orthocenter && pointAh) {
           annotations.labelH = {
             type: 'label',
             xValue: orthocenter.x,
@@ -1112,7 +1059,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('altitudeBBh') || param.key.includes('angleCBBh')) {
+        if ((!isSmall || param.key.includes('altitudeBBh') || param.key.includes('angleCBBh')) && orthocenter && pointBh) {
           annotations.labelH = {
             type: 'label',
             xValue: orthocenter.x,
@@ -1136,7 +1083,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('altitudeCCh') || param.key.includes('angleACCh')) {
+        if ((!isSmall || param.key.includes('altitudeCCh') || param.key.includes('angleACCh')) && orthocenter && pointCh) {
           annotations.labelH = {
             type: 'label',
             xValue: orthocenter.x,
@@ -1160,7 +1107,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('bisectorAAb') || param.key.includes('angleAAbC') || param.key.includes('angleAAbBBm')) {
+        if ((!isSmall || param.key.includes('bisectorAAb') || param.key.includes('angleAAbC') || param.key.includes('angleAAbBBm')) && pointAb) {
           annotations.labelAb = {
             type: 'label',
             xValue: pointAb.x,
@@ -1173,7 +1120,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('bisectorBBb') || param.key.includes('angleBBbA') || param.key.includes('angleBBbCCm')) {
+        if ((!isSmall || param.key.includes('bisectorBBb') || param.key.includes('angleBBbA') || param.key.includes('angleBBbCCm')) && pointBb) {
           annotations.labelBb = {
             type: 'label',
             xValue: pointBb.x,
@@ -1186,7 +1133,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('bisectorCCb') || param.key.includes('angleCCbB') || param.key.includes('angleCCbAAm')) {
+        if ((!isSmall || param.key.includes('bisectorCCb') || param.key.includes('angleCCbB') || param.key.includes('angleCCbAAm')) && pointCb) {
           annotations.labelCb = {
             type: 'label',
             xValue: pointCb.x,
@@ -1199,7 +1146,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('medianAAm') || param.key.includes('angleAAmC') || param.key.includes('angleCCbAAm')) {
+        if ((!isSmall || param.key.includes('medianAAm') || param.key.includes('angleAAmC') || param.key.includes('angleCCbAAm')) && pointAm) {
           annotations.labelAm = {
             type: 'label',
             xValue: pointAm.x,
@@ -1212,7 +1159,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('medianBBm') || param.key.includes('angleBBmA') || param.key.includes('angleAAbBBm')) {
+        if ((!isSmall || param.key.includes('medianBBm') || param.key.includes('angleBBmA') || param.key.includes('angleAAbBBm')) && pointBm) {
           annotations.labelBm = {
             type: 'label',
             xValue: pointBm.x,
@@ -1225,7 +1172,7 @@
             yAdjust: -8.5
           };
         }
-        if (param.key.includes('medianCCm') || param.key.includes('angleCCmB') || param.key.includes('angleBBbCCm')) {
+        if ((!isSmall || param.key.includes('medianCCm') || param.key.includes('angleCCmB') || param.key.includes('angleBBbCCm')) && pointCm) {
           annotations.labelCm = {
             type: 'label',
             xValue: pointCm.x,
